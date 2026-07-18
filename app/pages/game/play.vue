@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-950">
 
-    <!-- Login Screen -->
+    <!-- Join Screen -->
     <div v-if="!loggedIn" class="flex items-center justify-center min-h-screen p-4">
       <div class="w-full max-w-md space-y-6">
         <div class="text-center space-y-2">
@@ -9,25 +9,28 @@
             <UIcon name="i-lucide-trending-up" class="h-10 w-10 text-emerald-400" />
           </div>
           <h1 class="text-3xl font-extrabold text-white">Akciová Hra</h1>
-          <p class="text-slate-400">Přihlaste se do svého účtu</p>
+          <p class="text-slate-400">Vyberte kolo a hráče</p>
         </div>
 
         <UCard class="border-slate-800 bg-slate-900/80 backdrop-blur-md" :ui="{ body: 'p-6 space-y-4' }">
           <UFormField label="Herní kolo" name="round">
             <USelectMenu
-              v-model="loginForm.roundId"
+              v-model="joinForm.roundId"
               :items="roundOptions"
               placeholder="Vyberte kolo..."
               class="w-full"
             />
           </UFormField>
 
-          <UFormField label="Vaše jméno" name="name">
-            <UInput v-model="loginForm.name" placeholder="Jméno hráče" class="w-full" />
-          </UFormField>
-
-          <UFormField label="PIN" name="pin">
-            <UInput v-model="loginForm.pin" type="password" maxlength="4" placeholder="4-místný PIN" class="w-full" />
+          <UFormField label="Hráč" name="player">
+            <USelectMenu
+              v-model="joinForm.playerId"
+              :items="playerOptions"
+              :loading="playersLoading"
+              :disabled="!joinForm.roundId"
+              placeholder="Vyberte hráče..."
+              class="w-full"
+            />
           </UFormField>
 
           <UButton
@@ -35,13 +38,13 @@
             size="lg"
             class="w-full"
             icon="i-lucide-log-in"
-            :loading="loginLoading"
-            @click="login"
+            :loading="joinLoading"
+            @click="joinGame"
           >
             Vstoupit do hry
           </UButton>
 
-          <p v-if="loginError" class="text-sm text-rose-400 text-center">{{ loginError }}</p>
+          <p v-if="joinError" class="text-sm text-rose-400 text-center">{{ joinError }}</p>
         </UCard>
 
         <div class="text-center">
@@ -57,7 +60,7 @@
 
       <!-- Top bar -->
       <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
+        <div class="space-y-3">
           <div class="flex items-center gap-3 flex-wrap">
             <h1 class="text-2xl font-bold text-white">{{ portfolio?.player?.name }}</h1>
             <span class="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
@@ -69,25 +72,49 @@
               {{ roundStatusLabel }}
             </span>
           </div>
-          <p class="text-sm text-slate-500 mt-1">
-            Tah {{ portfolio?.round?.current_turn }} · Datum: {{ portfolio?.round?.current_date }}
-          </p>
+          <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 w-fit">
+            <p class="text-[11px] uppercase tracking-[0.16em] font-semibold text-emerald-300/80">Aktuální kolo</p>
+            <div class="flex flex-wrap items-baseline gap-x-5 gap-y-1 mt-1">
+              <p class="text-3xl md:text-4xl leading-none font-extrabold text-white">
+                Tah {{ portfolio?.round?.current_turn }}
+              </p>
+              <p class="text-base md:text-lg font-semibold text-emerald-200">
+                Do: {{ portfolio?.round?.current_date }}
+              </p>
+            </div>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-refresh-cw" :loading="portfolioLoading" @click="refreshPortfolio">
+        <div class="flex items-center gap-2 flex-wrap">
+          <UFormField v-if="isMultiMode" label="Přepnout hráče" name="multiPlayer" class="min-w-[180px]">
+            <USelectMenu
+              v-model="multiPlayerSelection"
+              :items="multiPlayerOptions"
+              placeholder="Hráč..."
+              class="w-full"
+            />
+          </UFormField>
+          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-refresh-cw" :loading="portfolioLoading" @click="refreshPortfolio()">
             Obnovit
           </UButton>
-          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-log-out" @click="logout">
-            Odhlásit
+          <UButton size="sm" variant="ghost" color="neutral" icon="i-lucide-log-out" @click="leaveGame">
+            Opustit
           </UButton>
         </div>
       </div>
 
       <!-- Portfolio Summary Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
           <p class="text-xs text-slate-500 uppercase tracking-wider font-medium">Hotovost</p>
           <p class="mt-1.5 text-xl font-bold text-white font-mono">{{ fmt(portfolio?.player?.cash ?? 0) }}</p>
+        </div>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <p class="text-xs text-slate-500 uppercase tracking-wider font-medium">Půjčka</p>
+          <p class="mt-1.5 text-xl font-bold text-amber-400 font-mono">{{ fmt(portfolio?.player?.loan_balance ?? 0) }}</p>
+        </div>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+          <p class="text-xs text-slate-500 uppercase tracking-wider font-medium">Celkem půjčeno</p>
+          <p class="mt-1.5 text-xl font-bold text-slate-300 font-mono">{{ fmt(portfolio?.player?.total_loaned ?? 0) }}</p>
         </div>
         <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
           <p class="text-xs text-slate-500 uppercase tracking-wider font-medium">Hodnota akcií</p>
@@ -114,28 +141,13 @@
 
           <!-- Ticker selector -->
           <UCard class="border-slate-800 bg-slate-900/60" :ui="{ body: 'p-4' }">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-              <USelectMenu
-                v-model="selectedTickers"
-                :items="tickerOptions"
-                multiple
-                searchable
-                placeholder="Vyberte akcie k zobrazení..."
-                class="flex-1"
-              >
-                <template #default>
-                  <div v-if="selectedTickers.length" class="flex flex-wrap gap-1">
-                    <UBadge v-for="t in selectedTickers" :key="t.value" size="sm" color="primary" variant="soft">
-                      {{ t.value }}
-                    </UBadge>
-                  </div>
-                  <span v-else class="text-slate-500">Vyberte akcie...</span>
-                </template>
-              </USelectMenu>
-              <UButton size="sm" variant="soft" color="primary" icon="i-lucide-search" :loading="chartLoading" @click="loadChart">
-                Zobrazit graf
-              </UButton>
-            </div>
+            <USelectMenu
+              v-model="selectedTicker"
+              :items="tickerOptions"
+              searchable
+              placeholder="Vyberte akcii k zobrazení..."
+              class="w-full"
+            />
           </UCard>
 
           <!-- Chart -->
@@ -144,7 +156,9 @@
               <div class="flex items-center justify-between">
                 <h2 class="text-sm font-bold text-white flex items-center gap-2">
                   <UIcon name="i-lucide-line-chart" class="h-4 w-4 text-blue-400" />
-                  Vývoj cen (do tahu {{ portfolio?.round?.current_turn }})
+                  <span v-if="selectedTickerSymbol">{{ selectedTickerSymbol }}</span>
+                  <span v-else>Vývoj cen</span>
+                  <span class="text-slate-500 font-normal">(do tahu {{ portfolio?.round?.current_turn }})</span>
                 </h2>
                 <p class="text-xs text-slate-500">Do: {{ portfolio?.round?.current_date }}</p>
               </div>
@@ -157,7 +171,7 @@
               </div>
               <div v-else-if="!chartData.length" class="text-center py-8">
                 <UIcon name="i-lucide-mouse-pointer-click" class="h-10 w-10 text-slate-600 mx-auto mb-3" />
-                <p class="text-sm text-slate-500">Vyberte akcie a klikněte na „Zobrazit graf"</p>
+                <p class="text-sm text-slate-500">Vyberte akcii pro zobrazení grafu</p>
               </div>
               <div v-else class="w-full h-[300px]">
                 <LineChart
@@ -188,19 +202,34 @@
               <p class="text-sm text-slate-500">Nemáte žádné akcie</p>
             </div>
             <div v-else class="space-y-2">
-              <div
+              <button
                 v-for="h in portfolio.holdings"
                 :key="h.ticker"
-                class="flex items-center justify-between p-2.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 transition-colors"
+                type="button"
+                class="w-full flex items-center justify-between p-2.5 rounded-lg transition-colors text-left"
+                :class="selectedTickerSymbol === h.ticker
+                  ? 'bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                  : 'bg-slate-800/60 hover:bg-slate-800'"
+                @click="selectTickerForSell(h.ticker)"
               >
                 <div>
                   <p class="text-sm font-bold text-white">{{ h.ticker }}</p>
-                  <p class="text-xs text-slate-500">{{ h.shares }} ks · {{ fmtSmall(h.current_price) }}/ks</p>
+                  <p class="text-xs text-slate-500">{{ fmtShares(h.shares) }} ks · {{ fmtSmall(h.current_price) }}/ks</p>
+                  <div v-if="h.performance_by_turn?.length" class="mt-1.5 space-y-0.5">
+                    <p
+                      v-for="roundPerf in h.performance_by_turn.slice(-1)"
+                      :key="`${h.ticker}-${roundPerf.turn}`"
+                      class="text-[11px] leading-tight"
+                      :class="roundGainClass(roundPerf.gain_amount)"
+                    >
+                      Tah {{ roundPerf.turn }}: {{ fmtSigned(roundPerf.gain_amount) }} ({{ fmtSignedPercent(roundPerf.gain_percent) }})
+                    </p>
+                  </div>
                 </div>
                 <div class="text-right">
                   <p class="text-sm font-bold text-white">{{ fmt(h.value) }}</p>
                 </div>
-              </div>
+              </button>
             </div>
           </UCard>
 
@@ -213,6 +242,7 @@
               <h2 class="text-sm font-bold text-white flex items-center gap-2">
                 <UIcon name="i-lucide-arrow-left-right" class="h-4 w-4 text-yellow-400" />
                 Obchodovat
+                <span v-if="selectedTickerSymbol" class="text-emerald-400 font-mono">{{ selectedTickerSymbol }}</span>
               </h2>
             </template>
 
@@ -223,6 +253,10 @@
               </p>
             </div>
 
+            <div v-else-if="!selectedTickerSymbol" class="text-center py-4">
+              <p class="text-sm text-slate-500">Nejprve vyberte akcii</p>
+            </div>
+
             <template v-else>
               <!-- Action toggle -->
               <div class="flex rounded-lg overflow-hidden border border-slate-700">
@@ -230,7 +264,8 @@
                   type="button"
                   class="flex-1 py-2 text-sm font-semibold transition-colors"
                   :class="tradeForm.action === 'buy' ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800/60 text-slate-400 hover:text-white'"
-                  @click="tradeForm.action = 'buy'"
+                  :disabled="isSelectedTickerSellOnly"
+                  @click="setTradeAction('buy')"
                 >
                   Koupit
                 </button>
@@ -238,24 +273,18 @@
                   type="button"
                   class="flex-1 py-2 text-sm font-semibold transition-colors"
                   :class="tradeForm.action === 'sell' ? 'bg-rose-500 text-white' : 'bg-slate-800/60 text-slate-400 hover:text-white'"
-                  @click="tradeForm.action = 'sell'"
+                  @click="setTradeAction('sell')"
                 >
                   Prodat
                 </button>
               </div>
 
-              <UFormField label="Ticker" name="ticker">
-                <USelectMenu
-                  v-model="tradeForm.ticker"
-                  :items="tickerOptions"
-                  searchable
-                  placeholder="Vyberte akcii..."
-                  class="w-full"
-                />
-              </UFormField>
+              <p v-if="isSelectedTickerSellOnly" class="text-xs text-amber-400">
+                Tato akcie není v aktuálním období k dispozici k nákupu. Lze pouze prodat.
+              </p>
 
               <UFormField label="Počet kusů" name="shares">
-                <UInput v-model.number="tradeForm.shares" type="number" min="1" placeholder="Počet akcií" class="w-full" />
+                <UInput v-model.number="tradeForm.shares" type="number" min="0.01" step="0.01" placeholder="Počet akcií" class="w-full" />
               </UFormField>
 
               <!-- Price preview -->
@@ -268,16 +297,27 @@
                   <span>Celkem:</span>
                   <span class="font-mono font-bold text-white">{{ fmt(tradePreview.total) }}</span>
                 </div>
-                <div v-if="tradeForm.action === 'buy'" class="flex justify-between text-slate-400">
-                  <span>Hotovost po nákupu:</span>
-                  <span class="font-mono" :class="tradePreview.remainingCash >= 0 ? 'text-emerald-400' : 'text-rose-400'">
-                    {{ fmt(tradePreview.remainingCash) }}
-                  </span>
+                <div v-if="tradeForm.action === 'buy'" class="space-y-1">
+                  <div class="flex justify-between text-slate-400">
+                    <span>Hotovost po nákupu:</span>
+                    <span class="font-mono" :class="tradePreview.remainingCash >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+                      {{ fmt(tradePreview.remainingCash) }}
+                    </span>
+                  </div>
+                  <div class="flex justify-between text-slate-400">
+                    <span>Půjčka po nákupu:</span>
+                    <span class="font-mono" :class="tradePreview.remainingLoanBalance >= 0 ? 'text-amber-400' : 'text-rose-400'">
+                      {{ fmt(tradePreview.remainingLoanBalance) }}
+                    </span>
+                  </div>
+                  <div v-if="!tradePreview.canAfford" class="text-rose-400 text-[11px]">
+                    Nedostatek prostředků (hotovost + půjčka)
+                  </div>
                 </div>
                 <div v-else class="flex justify-between text-slate-400">
                   <span>Vlastníte / prodáváte:</span>
-                  <span class="font-mono" :class="tradePreview.ownedShares >= tradeForm.shares ? 'text-emerald-400' : 'text-rose-400'">
-                    {{ tradePreview.ownedShares }} / {{ tradeForm.shares }} ks
+                  <span class="font-mono" :class="tradePreview.ownedShares + 0.0001 >= tradeForm.shares ? 'text-emerald-400' : 'text-rose-400'">
+                    {{ fmtShares(tradePreview.ownedShares) }} / {{ fmtShares(tradeForm.shares) }} ks
                   </span>
                 </div>
               </div>
@@ -289,12 +329,46 @@
                 :icon="tradeForm.action === 'buy' ? 'i-lucide-arrow-up-right' : 'i-lucide-arrow-down-right'"
                 @click="executeTrade"
               >
-                {{ tradeForm.action === 'buy' ? 'Koupit' : 'Prodat' }} {{ tradeForm.shares || '' }} ks
+                {{ tradeForm.action === 'buy' ? 'Koupit' : 'Prodat' }} {{ tradeForm.shares ? fmtShares(tradeForm.shares) : '' }} ks
               </UButton>
             </template>
           </UCard>
         </div>
       </div>
+
+      <!-- Stock News -->
+      <UCard v-if="currentNews" class="border-slate-800 bg-slate-900/60" :ui="{ body: 'p-4 space-y-3' }">
+        <template #header>
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <UIcon
+                :name="currentNews.polarity === 'positive' ? 'i-lucide-newspaper' : 'i-lucide-siren'"
+                class="h-4 w-4"
+                :class="currentNews.polarity === 'positive' ? 'text-emerald-400' : 'text-rose-400'"
+              />
+              Tržní zprávy
+            </h2>
+            <span
+              class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset"
+              :class="currentNews.polarity === 'positive'
+                ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
+                : 'bg-rose-500/10 text-rose-300 ring-rose-500/20'"
+            >
+              Tah {{ currentNews.turn }}
+            </span>
+          </div>
+        </template>
+
+        <p class="text-sm font-semibold" :class="currentNews.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'">
+          {{ currentNews.headline }}
+        </p>
+        <p class="text-sm text-slate-200 whitespace-pre-line leading-relaxed" v-html="currentNews.body"></p>
+        <div class="text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+          <span>Společnost: <span class="text-slate-200">{{ currentNews.companyName }}</span></span>
+          <span>Hráč(i): <span class="text-slate-200">{{ currentNews.playerNames }}</span></span>
+          <span>Změna: <span class="font-mono" :class="currentNews.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'">{{ currentNews.amount }}</span></span>
+        </div>
+      </UCard>
 
       <!-- Trade History -->
       <UCard class="border-slate-800 bg-slate-900/60" :ui="{ body: 'p-4' }">
@@ -329,7 +403,7 @@
                     {{ t.action === 'buy' ? '▲ Koupeno' : '▼ Prodáno' }}
                   </span>
                 </td>
-                <td class="py-2 pr-4 text-right font-mono">{{ t.shares }}</td>
+                <td class="py-2 pr-4 text-right font-mono">{{ fmtShares(t.shares) }}</td>
                 <td class="py-2 pr-4 text-right font-mono text-xs">{{ fmtSmall(t.price_per_share) }}</td>
                 <td class="py-2 text-right font-mono font-bold">{{ fmt(t.total) }}</td>
               </tr>
@@ -342,36 +416,68 @@
 </template>
 
 <script setup lang="ts">
+import { negativeTemplates, positiveTemplates } from '~/data/stockNewsTemplates'
+
 useSeoMeta({
   title: 'Akciová Hra — Hrát',
   description: 'Hráčský dashboard pro nákup a prodej akcií'
 })
 
 const toast = useToast()
-
-// Auth state
-const SESSION_KEY = 'stock_game_session'
-const loggedIn = ref(false)
-const session = ref<{ playerId: number; pin: string; roundId: number; name: string } | null>(null)
-
-onMounted(async () => {
-  const saved = localStorage.getItem(SESSION_KEY)
-  if (!saved) return
-  try {
-    const parsed = JSON.parse(saved)
-    if (parsed?.playerId && parsed?.pin) {
-      session.value = parsed
-      loggedIn.value = true
-      await refreshPortfolio()
-    }
-  } catch {
-    localStorage.removeItem(SESSION_KEY)
-  }
-})
-
 const route = useRoute()
 
-// Rounds for login dropdown
+type Session = { playerId: number; roundId: number; name: string }
+type TradeDraft = { action: 'buy' | 'sell'; shares: number }
+type NewsPolarity = 'positive' | 'negative'
+type NewsEvent = {
+  player_id: number
+  player_name: string
+  ticker: string
+  company_name: string
+  shares_at_turn: number
+  gain_amount: number
+  gain_percent: number
+  polarity: NewsPolarity
+}
+type RoundNewsPayload = {
+  selected: NewsEvent
+}
+type RenderedNews = {
+  turn: number
+  polarity: NewsPolarity
+  headline: string
+  body: string
+  ticker: string
+  companyName: string
+  playerNames: string
+  amount: string
+}
+
+const SESSION_KEY = 'stock_game_session'
+const loggedIn = ref(false)
+const session = ref<Session | null>(null)
+const currentNews = ref<RenderedNews | null>(null)
+const lastSeenTurn = ref<number | null>(null)
+const lastShownNewsTurn = ref<number | null>(null)
+
+const isMultiMode = computed(() => route.query.multi === '1')
+
+function getTickerSymbol(ticker: any): string | null {
+  if (!ticker) return null
+  return ticker.value ?? ticker
+}
+
+function getRoundId(round: any): number | null {
+  if (!round) return null
+  return round.value ?? round
+}
+
+function getPlayerId(player: any): number | null {
+  if (!player) return null
+  return player.value ?? player
+}
+
+// Rounds for join dropdown
 const { data: roundsData } = await useFetch<any>('/api/game/rounds', { lazy: true })
 const roundOptions = computed(() =>
   (roundsData.value?.data ?? [])
@@ -379,60 +485,180 @@ const roundOptions = computed(() =>
     .map((r: any) => ({ label: r.name, value: r.id }))
 )
 
-// Pre-select round from query param
+const joinForm = ref({ roundId: null as any, playerId: null as any })
+const roundPlayers = ref<Array<{ id: number; name: string }>>([])
+const playersLoading = ref(false)
+const joinLoading = ref(false)
+const joinError = ref('')
+
+const playerOptions = computed(() =>
+  roundPlayers.value.map(p => ({ label: p.name, value: p.id }))
+)
+
 watch(roundOptions, (opts) => {
   const roundParam = Number(route.query.round)
-  if (roundParam && opts.length && !loginForm.value.roundId) {
-    loginForm.value.roundId = opts.find((o: any) => o.value === roundParam) ?? null
+  if (roundParam && opts.length && !joinForm.value.roundId) {
+    joinForm.value.roundId = opts.find((o: any) => o.value === roundParam) ?? null
   }
 }, { immediate: true })
 
-const loginForm = ref({ roundId: null as any, name: '', pin: '' })
-const loginLoading = ref(false)
-const loginError = ref('')
+watch(() => joinForm.value.roundId, async (round) => {
+  joinForm.value.playerId = null
+  roundPlayers.value = []
+  const roundId = getRoundId(round)
+  if (!roundId) return
 
-async function login() {
-  loginError.value = ''
-  if (!loginForm.value.roundId || !loginForm.value.name || !loginForm.value.pin) {
-    loginError.value = 'Vyplňte všechna pole'
+  playersLoading.value = true
+  try {
+    const res = await $fetch<any>(`/api/game/rounds/${roundId}/players`)
+    if (res.success) roundPlayers.value = res.data
+  } catch {
+    roundPlayers.value = []
+  } finally {
+    playersLoading.value = false
+  }
+})
+
+async function joinGame() {
+  joinError.value = ''
+  const roundId = getRoundId(joinForm.value.roundId)
+  const playerId = getPlayerId(joinForm.value.playerId)
+  if (!roundId || !playerId) {
+    joinError.value = 'Vyberte kolo a hráče'
     return
   }
-  loginLoading.value = true
+
+  joinLoading.value = true
   try {
     const res = await $fetch<any>('/api/game/player/login', {
       method: 'POST',
-      body: {
-        round_id: loginForm.value.roundId.value ?? loginForm.value.roundId,
-        name: loginForm.value.name,
-        pin: loginForm.value.pin
-      }
+      body: { round_id: roundId, player_id: playerId }
     })
     if (res.success) {
       session.value = {
         playerId: res.player.id,
-        pin: loginForm.value.pin,
         roundId: res.player.round_id,
-        name: loginForm.value.name
+        name: res.player.name
       }
       localStorage.setItem(SESSION_KEY, JSON.stringify(session.value))
       loggedIn.value = true
-      await refreshPortfolio()
+      await enterGameSession()
     }
   } catch (e: any) {
-    loginError.value = e.data?.statusMessage ?? 'Přihlášení selhalo'
+    joinError.value = e.data?.statusMessage ?? 'Vstup do hry selhal'
   } finally {
-    loginLoading.value = false
+    joinLoading.value = false
   }
 }
 
-function logout() {
+function leaveGame() {
+  stopAutoRefresh()
   loggedIn.value = false
   session.value = null
   portfolio.value = null
+  selectedTicker.value = null
   chartData.value = []
+  loadedChartKey = null
   quotePrice.value = null
+  tradeDraftsByTicker.value = {}
+  tradeForm.value = { action: 'buy', shares: 1 }
+  currentNews.value = null
+  lastSeenTurn.value = null
+  lastShownNewsTurn.value = null
   localStorage.removeItem(SESSION_KEY)
 }
+
+async function enterGameSession() {
+  await loadRoundPlayers()
+  await refreshPortfolio()
+  await refreshTickers()
+  if (isMultiMode.value) {
+    syncMultiPlayerSelection()
+  }
+  startAutoRefresh()
+}
+
+onMounted(async () => {
+  const saved = localStorage.getItem(SESSION_KEY)
+  if (!saved) return
+  try {
+    const parsed = JSON.parse(saved)
+    if (parsed?.playerId && parsed?.roundId) {
+      session.value = parsed
+      loggedIn.value = true
+      await enterGameSession()
+    }
+  } catch {
+    localStorage.removeItem(SESSION_KEY)
+  }
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
+})
+
+// Multi-player switcher
+const multiPlayerSelection = ref<any>(null)
+const multiPlayerOptions = computed(() =>
+  roundPlayers.value.map(p => ({ label: p.name, value: p.id }))
+)
+
+async function loadRoundPlayers() {
+  if (!session.value) return
+  try {
+    const res = await $fetch<any>(`/api/game/rounds/${session.value.roundId}/players`)
+    if (res.success) roundPlayers.value = res.data
+  } catch {
+    roundPlayers.value = []
+  }
+}
+
+function syncMultiPlayerSelection() {
+  if (!session.value) return
+  multiPlayerSelection.value = multiPlayerOptions.value.find(
+    (o: any) => o.value === session.value!.playerId
+  ) ?? null
+}
+
+let switchingPlayer = false
+watch(multiPlayerSelection, async (player) => {
+  if (!isMultiMode.value || switchingPlayer || !loggedIn.value) return
+  const playerId = getPlayerId(player)
+  if (!playerId || !session.value || playerId === session.value.playerId) return
+
+  switchingPlayer = true
+  try {
+    const res = await $fetch<any>('/api/game/player/login', {
+      method: 'POST',
+      body: { round_id: session.value.roundId, player_id: playerId }
+    })
+    if (res.success) {
+      saveCurrentDraft()
+      session.value = {
+        playerId: res.player.id,
+        roundId: res.player.round_id,
+        name: res.player.name
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session.value))
+      selectedTicker.value = null
+      chartData.value = []
+      loadedChartKey = null
+      quotePrice.value = null
+      tradeDraftsByTicker.value = {}
+      tradeForm.value = { action: 'buy', shares: 1 }
+      currentNews.value = null
+      lastSeenTurn.value = null
+      lastShownNewsTurn.value = null
+      await refreshPortfolio()
+      await refreshTickers()
+    }
+  } catch (e: any) {
+    toast.add({ title: e.data?.statusMessage ?? 'Chyba přepnutí hráče', color: 'error' })
+    syncMultiPlayerSelection()
+  } finally {
+    switchingPlayer = false
+  }
+})
 
 // Portfolio
 const portfolio = ref<any>(null)
@@ -447,64 +673,250 @@ const roundStatusLabel = computed(() => {
   return s
 })
 
-async function refreshPortfolio() {
+async function refreshPortfolio(options: { silent?: boolean } = {}) {
   if (!session.value) return
   portfolioLoading.value = true
   try {
-    const res = await $fetch<any>(`/api/game/player/${session.value.playerId}/portfolio?pin=${session.value.pin}`)
-    if (res.success) portfolio.value = res.data
-    // Refresh quote for selected ticker
-    const symbol = tradeForm.value.ticker?.value ?? tradeForm.value.ticker
+    const res = await $fetch<any>(`/api/game/player/${session.value.playerId}/portfolio`)
+    if (res.success) {
+      portfolio.value = res.data
+
+      const newTurn = Number(res.data?.round?.current_turn ?? 0)
+      if (Number.isFinite(newTurn) && newTurn > 0) {
+        if (lastSeenTurn.value === null) {
+          lastSeenTurn.value = newTurn
+          const latestClosedTurn = newTurn - 1
+          if (latestClosedTurn >= 2 && latestClosedTurn !== lastShownNewsTurn.value) {
+            await refreshRoundNews(latestClosedTurn, { silent: true })
+          }
+        } else if (newTurn !== lastSeenTurn.value) {
+          const justClosedTurn = newTurn - 1
+          if (justClosedTurn >= 2 && justClosedTurn !== lastShownNewsTurn.value) {
+            await refreshRoundNews(justClosedTurn, { silent: true })
+          }
+          lastSeenTurn.value = newTurn
+        }
+      }
+    }
+    await refreshTickers()
+    reconcileSelectedTicker()
+    const symbol = selectedTickerSymbol.value
     if (symbol) {
-      const q = await $fetch<any>(
-        `/api/game/player/${session.value.playerId}/quote?pin=${session.value.pin}&ticker=${symbol}`
-      ).catch(() => null)
-      if (q?.success) quotePrice.value = q.data.price
+      await fetchQuote(symbol)
     }
   } catch (e: any) {
-    toast.add({ title: e.data?.statusMessage ?? 'Chyba načítání portfolia', color: 'error' })
+    if (e.statusCode === 404 || e.status === 404) {
+      leaveGame()
+      if (!options.silent) {
+        toast.add({ title: 'Kolo nebo hráč již neexistuje', color: 'error' })
+      }
+      return
+    }
+    if (!options.silent) {
+      toast.add({ title: e.data?.statusMessage ?? 'Chyba načítání portfolia', color: 'error' })
+    }
   } finally {
     portfolioLoading.value = false
   }
 }
 
+function deterministicIndex(seed: string, length: number): number {
+  if (length <= 0) return 0
+  let hash = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0) % length
+}
+
+function fillTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_m, key: string) => values[key] ?? `{${key}}`)
+}
+
+function buildNewsHeadline(event: NewsEvent): string {
+  if (event.polarity === 'positive') {
+    return `${event.ticker}: býčí extáze na plný plyn`
+  }
+  return `${event.ticker}: medvědí propad zapnul sirény`
+}
+
+async function refreshRoundNews(turn: number, options: { silent?: boolean } = {}) {
+  if (!session.value || turn < 2) return
+  try {
+    const res = await $fetch<{ success: boolean; data: RoundNewsPayload | null }>(
+      `/api/game/rounds/${session.value.roundId}/news?turn=${turn}`
+    )
+
+    lastShownNewsTurn.value = turn
+    if (!res.success || !res.data?.selected) return
+
+    const selected = res.data.selected
+    const templates = selected.polarity === 'positive' ? positiveTemplates : negativeTemplates
+    if (!templates.length) return
+
+    const seed = `${session.value.roundId}|${turn}|${selected.ticker}|${selected.player_id}|${selected.polarity}`
+    const template = templates[deterministicIndex(seed, templates.length)]!
+    const playerNames = selected.player_name
+    const amount = fmtSigned(selected.gain_amount)
+
+    const body = fillTemplate(template, {
+      ticker: selected.ticker,
+      companyName: selected.company_name,
+      playerName: playerNames,
+      playerNames,
+      amount,
+      amountAbs: fmt(Math.abs(selected.gain_amount)),
+      percent: fmtSignedPercent(selected.gain_percent),
+      shares: fmtShares(selected.shares_at_turn),
+      polarityTextStyle: `class="${selected.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'}"`
+    })
+
+    currentNews.value = {
+      turn,
+      polarity: selected.polarity,
+      headline: buildNewsHeadline(selected),
+      body,
+      ticker: selected.ticker,
+      companyName: selected.company_name,
+      playerNames,
+      amount
+    }
+  } catch (e: any) {
+    if (!options.silent) {
+      toast.add({ title: e.data?.statusMessage ?? 'Chyba načítání tržní zprávy', color: 'error' })
+    }
+  }
+}
+
+// Auto-refresh every 5 seconds
+let refreshInterval: ReturnType<typeof setInterval> | null = null
+
+function startAutoRefresh() {
+  stopAutoRefresh()
+  refreshInterval = setInterval(async () => {
+    if (!loggedIn.value || !session.value) return
+    await refreshPortfolio({ silent: true })
+    if (selectedTickerSymbol.value) {
+      await loadChart({ silent: true })
+    }
+  }, 5000)
+}
+
+function stopAutoRefresh() {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+    refreshInterval = null
+  }
+}
+
 // Chart
-const { data: tickersData } = await useFetch<any>('/api/tickers', { lazy: true })
+const tickersData = ref<any>(null)
+
+async function refreshTickers() {
+  if (!session.value) return
+  try {
+    const res = await $fetch<any>(`/api/game/player/${session.value.playerId}/tickers`)
+    if (res.success) tickersData.value = res
+  } catch {
+    tickersData.value = null
+  }
+}
+
 const tickerOptions = computed(() =>
   (tickersData.value?.data ?? []).map((t: any) => ({
-    label: `${t.ticker} — ${t.popis.split(' - ')[0]}`,
-    value: t.ticker
+    label: t.sell_only
+      ? `${t.ticker} — pouze prodej`
+      : `${t.ticker} — ${t.popis}`,
+    value: t.ticker,
+    sell_only: Boolean(t.sell_only)
   }))
 )
-const selectedTickers = ref<any[]>([])
+
+const sellOnlyTickerSet = computed(() =>
+  new Set(tickerOptions.value.filter((t: any) => t.sell_only).map((t: any) => t.value))
+)
+
+const isSelectedTickerSellOnly = computed(() => {
+  const symbol = selectedTickerSymbol.value
+  return symbol ? sellOnlyTickerSet.value.has(symbol) : false
+})
+
+function reconcileSelectedTicker() {
+  const symbol = selectedTickerSymbol.value
+  if (!symbol) return
+
+  const inList = tickerOptions.value.some((t: any) => t.value === symbol)
+  const held = portfolio.value?.holdings?.some((h: any) => h.ticker === symbol)
+  if (!inList && !held) {
+    selectedTicker.value = null
+    chartData.value = []
+    loadedChartKey = null
+    quotePrice.value = null
+  }
+}
+
+function getTickerOption(ticker: string) {
+  return tickerOptions.value.find((t: any) => t.value === ticker) ?? {
+    label: `${ticker} — pouze prodej`,
+    value: ticker,
+    sell_only: true
+  }
+}
+
+const selectedTicker = ref<any>(null)
+const selectedTickerSymbol = computed(() => getTickerSymbol(selectedTicker.value))
 const chartData = ref<any[]>([])
 const chartLoading = ref(false)
+let loadedChartKey: string | null = null
+
+function getChartLoadKey(): string | null {
+  const symbol = selectedTickerSymbol.value
+  const endDate = portfolio.value?.round?.current_date
+  if (!symbol || !endDate) return null
+  return `${symbol}|${endDate}`
+}
 
 const colorPalette = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#14b8a6']
 const chartCategories = computed(() => {
-  const cats: any = {}
-  selectedTickers.value.forEach((t: any, idx: number) => {
-    cats[`${t.value}_close`] = {
-      name: `${t.value} (Závěr)`,
-      color: colorPalette[idx % colorPalette.length]
+  const symbol = selectedTickerSymbol.value
+  if (!symbol) return {}
+  return {
+    [`${symbol}_close`]: {
+      name: `${symbol} (Závěr)`,
+      color: colorPalette[0]
     }
-  })
-  return cats
+  }
 })
 
-async function loadChart() {
-  if (!session.value || !selectedTickers.value.length) return
-  chartLoading.value = true
+async function loadChart(options: { silent?: boolean; force?: boolean } = {}) {
+  const symbol = selectedTickerSymbol.value
+  if (!session.value || !symbol) return
+
+  const chartKey = getChartLoadKey()
+  if (!options.force && chartKey && chartKey === loadedChartKey) {
+    return
+  }
+
+  if (!options.silent) {
+    chartLoading.value = true
+  }
   try {
-    const tickers = selectedTickers.value.map((t: any) => t.value).join(',')
     const res = await $fetch<any>(
-      `/api/game/player/${session.value.playerId}/prices?pin=${session.value.pin}&tickers=${tickers}`
+      `/api/game/player/${session.value.playerId}/prices?tickers=${symbol}`
     )
-    if (res.success) chartData.value = res.data
+    if (res.success) {
+      chartData.value = res.data
+      loadedChartKey = chartKey
+    }
   } catch (e: any) {
-    toast.add({ title: e.data?.statusMessage ?? 'Chyba načítání grafů', color: 'error' })
+    if (!options.silent) {
+      toast.add({ title: e.data?.statusMessage ?? 'Chyba načítání grafů', color: 'error' })
+    }
   } finally {
-    chartLoading.value = false
+    if (!options.silent) {
+      chartLoading.value = false
+    }
   }
 }
 
@@ -515,58 +927,159 @@ const xFormatter = (index: number) => {
   return `${parseInt(day)}. ${parseInt(m)}. ${y}`
 }
 
-// Trade
-const tradeForm = ref({ action: 'buy' as 'buy' | 'sell', ticker: null as any, shares: 1 })
+// Trade drafts per ticker
+const tradeDraftsByTicker = ref<Record<string, TradeDraft>>({})
+const tradeForm = ref<TradeDraft>({ action: 'buy', shares: 1 })
 const trading = ref(false)
 const quotePrice = ref<number | null>(null)
 
-watch(() => tradeForm.value.ticker, async (ticker) => {
-  quotePrice.value = null
-  const symbol = ticker?.value ?? ticker
-  if (!symbol || !session.value) return
+function saveCurrentDraft() {
+  const symbol = selectedTickerSymbol.value
+  if (!symbol) return
+  tradeDraftsByTicker.value[symbol] = {
+    action: tradeForm.value.action,
+    shares: tradeForm.value.shares
+  }
+}
+
+function restoreDraft(symbol: string) {
+  const draft = tradeDraftsByTicker.value[symbol]
+  const sellOnly = sellOnlyTickerSet.value.has(symbol)
+  tradeForm.value = {
+    action: sellOnly ? 'sell' : (draft?.action ?? 'buy'),
+    shares: draft?.shares ?? 1
+  }
+}
+
+function setTradeAction(action: 'buy' | 'sell') {
+  if (action === 'buy' && isSelectedTickerSellOnly.value) return
+  tradeForm.value.action = action
+  saveCurrentDraft()
+}
+
+watch(() => tradeForm.value.shares, () => {
+  saveCurrentDraft()
+})
+
+watch(selectedTicker, async (newTicker, oldTicker) => {
+  const oldSymbol = getTickerSymbol(oldTicker)
+  const newSymbol = getTickerSymbol(newTicker)
+
+  if (oldSymbol) {
+    tradeDraftsByTicker.value[oldSymbol] = {
+      action: tradeForm.value.action,
+      shares: tradeForm.value.shares
+    }
+  }
+
+  if (!newSymbol) {
+    chartData.value = []
+    loadedChartKey = null
+    quotePrice.value = null
+    return
+  }
+
+  restoreDraft(newSymbol)
+  await Promise.all([
+    loadChart({ force: true }),
+    fetchQuote(newSymbol)
+  ])
+})
+
+async function fetchQuote(symbol: string) {
+  if (!session.value) return
   try {
     const res = await $fetch<any>(
-      `/api/game/player/${session.value.playerId}/quote?pin=${session.value.pin}&ticker=${symbol}`
+      `/api/game/player/${session.value.playerId}/quote?ticker=${symbol}`
     )
     if (res.success) quotePrice.value = res.data.price
   } catch {
     quotePrice.value = null
   }
-})
+}
+
+function selectTickerForSell(ticker: string) {
+  const option = getTickerOption(ticker)
+
+  saveCurrentDraft()
+
+  tradeDraftsByTicker.value[ticker] = {
+    action: 'sell',
+    shares: tradeDraftsByTicker.value[ticker]?.shares ?? 1
+  }
+
+  if (selectedTickerSymbol.value === ticker) {
+    restoreDraft(ticker)
+    fetchQuote(ticker)
+    return
+  }
+
+  selectedTicker.value = option
+}
 
 const tradePreview = computed(() => {
-  const ticker = tradeForm.value.ticker?.value ?? tradeForm.value.ticker
+  const ticker = selectedTickerSymbol.value
   if (!ticker || !tradeForm.value.shares) return null
   const holding = portfolio.value?.holdings?.find((h: any) => h.ticker === ticker)
   const price = quotePrice.value ?? holding?.current_price ?? null
   if (!price) return null
   const total = price * tradeForm.value.shares
-  const remainingCash = (portfolio.value?.player?.cash ?? 0) - total
+  const cash = portfolio.value?.player?.cash ?? 0
+  const loanBalance = portfolio.value?.player?.loan_balance ?? 0
+  const fromCash = Math.min(cash, total)
+  const fromLoan = total - fromCash
+  const remainingCash = cash - fromCash
+  const remainingLoanBalance = loanBalance - fromLoan
+  const canAfford = cash + loanBalance + 0.0001 >= total
   const ownedShares = holding?.shares ?? 0
-  return { price, total, remainingCash, ownedShares }
+  return { price, total, remainingCash, remainingLoanBalance, canAfford, ownedShares }
 })
+
+function normalizeShareInput(shares: number): number {
+  return Math.round(shares * 100) / 100
+}
+
+function isValidShareInput(shares: number): boolean {
+  if (!Number.isFinite(shares) || shares < 0.01) return false
+  return Math.abs(shares - normalizeShareInput(shares)) <= 0.0001
+}
 
 async function executeTrade() {
   if (!session.value) return
-  const ticker = tradeForm.value.ticker?.value ?? tradeForm.value.ticker
+  const ticker = selectedTickerSymbol.value
   if (!ticker || !tradeForm.value.shares) {
     toast.add({ title: 'Vyberte akcii a počet kusů', color: 'error' })
     return
   }
+
+  const shares = normalizeShareInput(Number(tradeForm.value.shares))
+  if (!isValidShareInput(shares)) {
+    toast.add({ title: 'Počet kusů musí být násobkem 0.01 a alespoň 0.01', color: 'error' })
+    return
+  }
+
+  if (tradeForm.value.action === 'buy' && isSelectedTickerSellOnly.value) {
+    toast.add({ title: 'Tuto akcii nelze v aktuálním období koupit', color: 'error' })
+    return
+  }
+
   trading.value = true
   try {
     const res = await $fetch<any>(`/api/game/player/${session.value.playerId}/trade`, {
       method: 'POST',
       body: {
-        pin: session.value.pin,
         ticker,
         action: tradeForm.value.action,
-        shares: Number(tradeForm.value.shares)
+        shares
       }
     })
     if (res.success) {
       toast.add({ title: res.message, color: 'success' })
       tradeForm.value.shares = 1
+      tradeDraftsByTicker.value[ticker] = {
+        action: tradeForm.value.action,
+        shares: 1
+      }
       await refreshPortfolio()
     }
   } catch (e: any) {
@@ -581,5 +1094,23 @@ function fmt(val: number) {
 }
 function fmtSmall(val: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)
+}
+function fmtShares(val: number) {
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(val)
+}
+function fmtSigned(val: number) {
+  const base = fmt(Math.abs(val))
+  if (Math.abs(val) < 0.0001) return base
+  return val > 0 ? `+${base}` : `-${base}`
+}
+function fmtSignedPercent(val: number) {
+  const abs = Math.abs(val).toFixed(2)
+  if (Math.abs(val) < 0.0001) return '0.00%'
+  return val > 0 ? `+${abs}%` : `-${abs}%`
+}
+function roundGainClass(val: number) {
+  if (val > 0.0001) return 'text-emerald-400'
+  if (val < -0.0001) return 'text-rose-400'
+  return 'text-slate-500'
 }
 </script>

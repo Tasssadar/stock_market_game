@@ -1,16 +1,12 @@
 import { getGameDb } from '../../../../utils/gameDb'
 import { getDb } from '../../../../utils/db'
-import { getTurnDate, getClosePrice } from '../../../../utils/gameHelpers'
+import { getRoundCurrentDate, getClosePrice } from '../../../../utils/gameHelpers'
 
 export default defineEventHandler((event) => {
   const playerId = Number(getRouterParam(event, 'id'))
   const query = getQuery(event)
-  const pin = query.pin as string
   const ticker = query.ticker as string
 
-  if (!pin) {
-    throw createError({ statusCode: 401, statusMessage: 'PIN je povinný' })
-  }
   if (!ticker) {
     throw createError({ statusCode: 400, statusMessage: 'Parametr ticker je povinný' })
   }
@@ -19,8 +15,8 @@ export default defineEventHandler((event) => {
   const stockDb = getDb()
 
   const player = db.prepare('SELECT * FROM players WHERE id = ?').get(playerId) as any
-  if (!player || player.pin !== pin) {
-    throw createError({ statusCode: 401, statusMessage: 'Nesprávný PIN' })
+  if (!player) {
+    throw createError({ statusCode: 404, statusMessage: 'Hráč nenalezen' })
   }
 
   const tickerExists = stockDb.prepare('SELECT ticker FROM tickers WHERE ticker = ?').get(ticker)
@@ -29,9 +25,7 @@ export default defineEventHandler((event) => {
   }
 
   const round = db.prepare('SELECT * FROM rounds WHERE id = ?').get(player.round_id) as any
-  const currentDate = round.current_turn > 0
-    ? getTurnDate(round.start_date, round.turn_length_days, round.current_turn)
-    : round.start_date
+  const currentDate = getRoundCurrentDate(round)
 
   const price = getClosePrice(stockDb, ticker, currentDate)
   if (price === null) {

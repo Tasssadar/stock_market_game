@@ -97,6 +97,16 @@
                 >
                   Ukončit
                 </UButton>
+                <UButton
+                  size="sm"
+                  variant="ghost"
+                  color="error"
+                  icon="i-lucide-trash-2"
+                  :loading="deletingId === round.id"
+                  @click="eraseRound(round.id, round.name)"
+                >
+                  Smazat
+                </UButton>
               </div>
             </div>
 
@@ -106,36 +116,54 @@
                 <thead>
                   <tr class="text-left text-xs text-slate-500 uppercase tracking-wider">
                     <th class="pb-2 pr-4">Hráč</th>
-                    <th class="pb-2 pr-4">PIN</th>
                     <th class="pb-2 pr-4 text-right">Hotovost</th>
+                    <th class="pb-2 pr-4 text-right">Půjčka</th>
+                    <th class="pb-2 pr-4 text-right">Celkem půjčeno</th>
                     <th class="pb-2 pr-4 text-right">Akcie</th>
-                    <th class="pb-2 text-right">Celkem</th>
-                    <th class="pb-2 text-right">Zisk/Ztráta</th>
+                    <th class="pb-2 pr-4 text-right">Celkem</th>
+                    <th class="pb-2 pr-4 text-right">Zisk/Ztráta</th>
+                    <th class="pb-2 text-right">Akce</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
                   <tr v-for="(p, idx) in roundDetails[round.id].players" :key="p.id" class="group">
                     <td class="py-2.5 pr-4">
                       <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold text-slate-600 w-5">{{ idx + 1 }}</span>
+                        <span class="text-xs font-bold text-slate-600 w-5">{{ Number(idx) + 1 }}</span>
                         <span class="font-medium text-white">{{ p.name }}</span>
                       </div>
-                    </td>
-                    <td class="py-2.5 pr-4">
-                      <code class="text-xs bg-slate-800 text-yellow-400 px-2 py-0.5 rounded font-mono">{{ getPinForPlayer(round.id, p.id) ?? '••••' }}</code>
                     </td>
                     <td class="py-2.5 pr-4 text-right text-slate-300 font-mono text-xs">
                       {{ fmt(p.cash) }}
                     </td>
+                    <td class="py-2.5 pr-4 text-right text-amber-300 font-mono text-xs">
+                      {{ fmt(p.loan_balance ?? 0) }}
+                    </td>
+                    <td class="py-2.5 pr-4 text-right text-slate-400 font-mono text-xs">
+                      {{ fmt(p.total_loaned ?? 0) }}
+                    </td>
                     <td class="py-2.5 pr-4 text-right text-slate-300 font-mono text-xs">
                       {{ fmt(p.holdings_value) }}
                     </td>
-                    <td class="py-2.5 text-right font-bold text-white font-mono text-xs">
+                    <td class="py-2.5 pr-4 text-right font-bold text-white font-mono text-xs">
                       {{ fmt(p.total_value) }}
                     </td>
-                    <td class="py-2.5 text-right font-mono text-xs" :class="p.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+                    <td class="py-2.5 pr-4 text-right font-mono text-xs" :class="p.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'">
                       {{ p.profit >= 0 ? '+' : '' }}{{ fmt(p.profit) }}
                       <span class="text-[10px] ml-1">({{ p.profit_percent.toFixed(1) }}%)</span>
+                    </td>
+                    <td class="py-2.5 text-right">
+                      <UButton
+                        v-if="round.status !== 'finished'"
+                        size="xs"
+                        variant="soft"
+                        color="warning"
+                        icon="i-lucide-hand-coins"
+                        :loading="loaningId === p.id"
+                        @click="openLoanModal(round.id, p)"
+                      >
+                        Půjčka
+                      </UButton>
                     </td>
                   </tr>
                 </tbody>
@@ -209,42 +237,27 @@
       </template>
     </UModal>
 
-    <!-- PIN reveal modal (shown after creation) -->
-    <UModal v-model:open="showPinModal" :ui="{ content: 'bg-slate-900 border border-slate-700 max-w-lg w-full' }">
+    <!-- Loan Modal -->
+    <UModal v-model:open="showLoanModal" :ui="{ content: 'bg-slate-900 border border-slate-700 max-w-md w-full' }">
       <template #content>
-        <div class="p-6 space-y-4">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-key-round" class="h-6 w-6 text-yellow-400" />
-            <h2 class="text-xl font-bold text-white">PINy hráčů</h2>
+        <div class="p-6 space-y-5">
+          <div>
+            <h2 class="text-xl font-bold text-white">Poskytnout půjčku</h2>
+            <p class="text-sm text-slate-400 mt-1">
+              Hráč: <span class="text-white font-medium">{{ loanForm.playerName }}</span>
+            </p>
           </div>
-          <p class="text-sm text-slate-400">
-            Sdělte hráčům jejich PINy. Po zavření tohoto okna PINy nejsou zobrazeny (jsou ale viditelné v tabulce kola).
-          </p>
-          <div class="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="bg-slate-900/60 text-xs text-slate-500 uppercase tracking-wider">
-                  <th class="text-left px-4 py-2">Hráč</th>
-                  <th class="text-left px-4 py-2">PIN</th>
-                  <th class="text-right px-4 py-2">Kapitál</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-800/60">
-                <tr v-for="p in createdPlayers" :key="p.name">
-                  <td class="px-4 py-3 font-medium text-white">{{ p.name }}</td>
-                  <td class="px-4 py-3">
-                    <code class="text-yellow-400 font-mono text-lg font-bold tracking-widest">{{ p.pin }}</code>
-                  </td>
-                  <td class="px-4 py-3 text-right text-slate-300 font-mono text-xs">
-                    {{ fmt(p.starting_money) }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="flex justify-end">
-            <UButton color="primary" icon="i-lucide-check" @click="showPinModal = false">
-              Rozumím, zavřít
+
+          <UFormField label="Částka ($)" name="amount">
+            <UInput v-model.number="loanForm.amount" type="number" min="1" step="100" placeholder="např. 5000" class="w-full" />
+          </UFormField>
+
+          <div class="flex justify-end gap-3 pt-2">
+            <UButton variant="ghost" color="neutral" @click="showLoanModal = false">
+              Zrušit
+            </UButton>
+            <UButton color="warning" icon="i-lucide-hand-coins" :loading="loaningId !== null" @click="submitLoan">
+              Poskytnout půjčku
             </UButton>
           </div>
         </div>
@@ -267,18 +280,12 @@ const rounds = computed<any[]>(() => roundsData.value?.data ?? [])
 
 // Per-round details cache
 const roundDetails = ref<Record<number, any>>({})
-// PIN cache (only available right after creation)
-const pinCache = ref<Record<number, Record<number, string>>>({})
 
 async function loadRoundDetails(roundId: number) {
   const res = await $fetch<any>(`/api/game/rounds/${roundId}`)
   if (res.success) {
     roundDetails.value[roundId] = res.data
   }
-}
-
-function getPinForPlayer(roundId: number, playerId: number) {
-  return pinCache.value[roundId]?.[playerId]
 }
 
 // Auto-load details for all rounds
@@ -323,6 +330,68 @@ async function finishRound(roundId: number, name: string) {
   }
 }
 
+const deletingId = ref<number | null>(null)
+async function eraseRound(roundId: number, name: string) {
+  if (!confirm(`Opravdu SMAZAT kolo "${name}"? Tuto akci nelze vrátit.`)) return
+  deletingId.value = roundId
+  try {
+    const res = await $fetch<any>(`/api/game/rounds/${roundId}/delete`, { method: 'POST' })
+    if (res.success) {
+      toast.add({ title: res.message, color: 'success' })
+      delete roundDetails.value[roundId]
+      await refreshRounds()
+    }
+  } catch (e: any) {
+    toast.add({ title: e.data?.statusMessage ?? 'Chyba', color: 'error' })
+  } finally {
+    deletingId.value = null
+  }
+}
+
+const showLoanModal = ref(false)
+const loaningId = ref<number | null>(null)
+const loanForm = ref({
+  roundId: 0,
+  playerId: 0,
+  playerName: '',
+  amount: 1000
+})
+
+function openLoanModal(roundId: number, player: any) {
+  loanForm.value = {
+    roundId,
+    playerId: player.id,
+    playerName: player.name,
+    amount: 1000
+  }
+  showLoanModal.value = true
+}
+
+async function submitLoan() {
+  const { roundId, playerId, amount } = loanForm.value
+  if (!Number.isFinite(amount) || amount <= 0) {
+    toast.add({ title: 'Zadejte kladnou částku půjčky', color: 'error' })
+    return
+  }
+
+  loaningId.value = playerId
+  try {
+    const res = await $fetch<any>(`/api/game/player/${playerId}/loan`, {
+      method: 'POST',
+      body: { amount }
+    })
+    if (res.success) {
+      toast.add({ title: res.message, color: 'success' })
+      showLoanModal.value = false
+      await loadRoundDetails(roundId)
+    }
+  } catch (e: any) {
+    toast.add({ title: e.data?.statusMessage ?? 'Chyba při poskytování půjčky', color: 'error' })
+  } finally {
+    loaningId.value = null
+  }
+}
+
 // Create round modal
 const showCreateModal = ref(false)
 const creating = ref(false)
@@ -342,10 +411,6 @@ function addPlayer() {
 function removePlayer(idx: number) {
   form.value.players.splice(idx, 1)
 }
-
-// PIN reveal state
-const showPinModal = ref(false)
-const createdPlayers = ref<any[]>([])
 
 async function createRound() {
   if (!form.value.name.trim()) {
@@ -371,19 +436,10 @@ async function createRound() {
     })
 
     if (res.success) {
-      // Store PINs in local cache
       const newRoundId = res.round.id
-      pinCache.value[newRoundId] = {}
-      createdPlayers.value = res.players.map((p: any) => ({
-        ...p,
-        starting_money: validPlayers.find(vp => vp.name.trim() === p.name)?.starting_money ?? 0
-      }))
-      for (const p of res.players) {
-        pinCache.value[newRoundId][p.id] = p.pin
-      }
 
       showCreateModal.value = false
-      showPinModal.value = true
+      toast.add({ title: `Kolo "${res.round.name}" bylo vytvořeno`, color: 'success' })
 
       // Reset form
       form.value = {

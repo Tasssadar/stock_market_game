@@ -1,5 +1,4 @@
 import { getGameDb } from '../../utils/gameDb'
-import { generatePin } from '../../utils/gameHelpers'
 
 interface PlayerInput {
   name: string
@@ -25,7 +24,6 @@ export default defineEventHandler(async (event) => {
 
   const db = getGameDb()
 
-  // Insert round
   const roundResult = db.prepare(`
     INSERT INTO rounds (name, start_date, turn_length_days)
     VALUES (?, ?, ?)
@@ -33,21 +31,18 @@ export default defineEventHandler(async (event) => {
 
   const roundId = roundResult.lastInsertRowid as number
 
-  // Insert players with generated PINs
   const insertPlayer = db.prepare(`
-    INSERT INTO players (round_id, name, pin, starting_money, cash)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO players (round_id, name, starting_money, cash)
+    VALUES (?, ?, ?, ?)
   `)
 
-  const createdPlayers: Array<{ name: string; pin: string; id: number }> = []
+  const createdPlayers: Array<{ name: string; id: number }> = []
 
   const insertAll = db.transaction(() => {
     for (const p of players) {
-      const pin = generatePin()
-      const result = insertPlayer.run(roundId, p.name.trim(), pin, p.starting_money, p.starting_money)
+      const result = insertPlayer.run(roundId, p.name.trim(), p.starting_money, p.starting_money)
       createdPlayers.push({
         name: p.name.trim(),
-        pin,
         id: result.lastInsertRowid as number
       })
     }

@@ -412,7 +412,7 @@ const endDate = ref('2020-04-01') // Max date in dataset
 // Map tickers list to option structure for USelectMenu
 const tickersOptions = computed<TickerOption[]>(() => {
   return tickers.value.map((t) => ({
-    label: `${t.ticker} - ${t.popis.split(' - ')[0]}`,
+    label: `${t.ticker} - ${t.popis}`,
     value: t.ticker,
     description: t.popis
   }))

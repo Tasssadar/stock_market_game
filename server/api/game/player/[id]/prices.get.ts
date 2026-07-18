@@ -1,16 +1,12 @@
 import { getGameDb } from '../../../../utils/gameDb'
 import { getDb } from '../../../../utils/db'
-import { getTurnDate } from '../../../../utils/gameHelpers'
+import { getRoundCurrentDate } from '../../../../utils/gameHelpers'
 
 export default defineEventHandler((event) => {
   const playerId = Number(getRouterParam(event, 'id'))
   const query = getQuery(event)
-  const pin = query.pin as string
   const tickersQuery = query.tickers as string
 
-  if (!pin) {
-    throw createError({ statusCode: 401, statusMessage: 'PIN je povinný' })
-  }
   if (!tickersQuery) {
     throw createError({ statusCode: 400, statusMessage: 'Parametr tickers je povinný' })
   }
@@ -19,16 +15,16 @@ export default defineEventHandler((event) => {
   const stockDb = getDb()
 
   const player = db.prepare('SELECT * FROM players WHERE id = ?').get(playerId) as any
-  if (!player || player.pin !== pin) {
-    throw createError({ statusCode: 401, statusMessage: 'Nesprávný PIN' })
+  if (!player) {
+    throw createError({ statusCode: 404, statusMessage: 'Hráč nenalezen' })
   }
 
   const round = db.prepare('SELECT * FROM rounds WHERE id = ?').get(player.round_id) as any
+  if (!round) {
+    throw createError({ statusCode: 404, statusMessage: 'Kolo nenalezeno' })
+  }
 
-  // Enforce: players can only see prices up to current turn date
-  const cutoffDate = round.current_turn > 0
-    ? getTurnDate(round.start_date, round.turn_length_days, round.current_turn)
-    : round.start_date
+  const cutoffDate = getRoundCurrentDate(round)
 
   const tickers = tickersQuery.split(',').map((t: string) => t.trim()).filter(Boolean)
   const placeholders = tickers.map(() => '?').join(',')
@@ -41,7 +37,6 @@ export default defineEventHandler((event) => {
     ORDER BY date ASC
   `).all(...tickers, cutoffDate) as any[]
 
-  // Pivot by date (same format as main prices API)
   const pivotedMap = new Map<string, any>()
   for (const row of rows) {
     const { date, ticker } = row

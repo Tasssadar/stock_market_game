@@ -30,13 +30,16 @@ export default defineEventHandler((event) => {
       return { ...h, current_price: price, value }
     })
 
-    const totalValue = p.cash + holdingsValue
+    const loanBalance = p.loan_balance ?? 0
+    const totalLoaned = p.total_loaned ?? 0
+    const totalValue = p.cash + loanBalance + holdingsValue
     const profit = totalValue - p.starting_money
     const profitPercent = p.starting_money > 0 ? (profit / p.starting_money) * 100 : 0
 
     return {
       ...p,
-      pin: undefined, // don't expose pin in round detail
+      loan_balance: loanBalance,
+      total_loaned: totalLoaned,
       holdings: holdingsWithPrice,
       holdings_value: holdingsValue,
       total_value: totalValue,

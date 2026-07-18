@@ -27,7 +27,9 @@ export default defineEventHandler((event) => {
       holdingsValue += price * h.shares
     }
 
-    const totalValue = p.cash + holdingsValue
+    const loanBalance = p.loan_balance ?? 0
+    const totalLoaned = p.total_loaned ?? 0
+    const totalValue = p.cash + loanBalance + holdingsValue
     const profit = totalValue - p.starting_money
     const profitPercent = p.starting_money > 0 ? (profit / p.starting_money) * 100 : 0
 
@@ -35,6 +37,8 @@ export default defineEventHandler((event) => {
       id: p.id,
       name: p.name,
       cash: p.cash,
+      loan_balance: loanBalance,
+      total_loaned: totalLoaned,
       holdings_value: holdingsValue,
       total_value: totalValue,
       starting_money: p.starting_money,
