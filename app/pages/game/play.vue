@@ -735,25 +735,25 @@ function fillTemplate(template: string, values: Record<string, string>): string 
 }
 
 const positiveHeadlineVariants = [
-  'býčí extáze na plný plyn',
-  'růstová jízda bez brzd',
-  'zelená raketa právě odstartovala',
-  'trh hlásí byčí turbo režim',
-  'optimismus převzal velení',
-  'parket jede na vlně euforie',
-  'býci diktují tempo celé seanci',
-  'graf připomíná výtah do nebe'
+  'internet slaví nečekaný posun o úroveň výš',
+  'čísla vystřelila jak raketa na festivalu',
+  'dneska jede v turbo režimu bez přehřívání',
+  'vítězný soundtrack hraje na plné pecky',
+  'chat nestíhá chrlit oslavné gify',
+  'všichni hledají, kdo zapnul tajný kód',
+  'nálada je nahoře a konfety dochází',
+  'hlášeno: denní dávka radosti doručena'
 ]
 
 const negativeHeadlineVariants = [
-  'medvědí propad zapnul sirény',
-  'červená lavina smetla parket',
-  'trh přešel do režimu nouze',
-  'graf se utrhl směrem dolů',
-  'medvědi ovládli hlavní scénu',
-  'nálada padá rychleji než kurz',
-  'panika přebrala mikrofon',
-  'býci ustoupili a zůstalo ticho'
+  'režim den blbec byl právě aktivován',
+  'tabule hlásí kritický nedostatek radosti',
+  'dneska to sjelo dolů bez varování',
+  'chat píše jen "au" a posílá smutné smajlíky',
+  'nálada spadla a soundtrack ztichl',
+  'nečekaný pád přepsal plán dne',
+  'čísla zakopla a tvrdě přistála',
+  'dnes vítězí chaos a zvednuté obočí'
 ]
 
 function pickRandom(items: string[]): string {
