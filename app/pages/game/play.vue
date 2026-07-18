@@ -274,6 +274,12 @@
                     {{ fmt(tradePreview.remainingCash) }}
                   </span>
                 </div>
+                <div v-else class="flex justify-between text-slate-400">
+                  <span>Vlastníte / prodáváte:</span>
+                  <span class="font-mono" :class="tradePreview.ownedShares >= tradeForm.shares ? 'text-emerald-400' : 'text-rose-400'">
+                    {{ tradePreview.ownedShares }} / {{ tradeForm.shares }} ks
+                  </span>
+                </div>
               </div>
 
               <UButton
@@ -344,8 +350,26 @@ useSeoMeta({
 const toast = useToast()
 
 // Auth state
+const SESSION_KEY = 'stock_game_session'
 const loggedIn = ref(false)
-const session = ref<{ playerId: number; pin: string; roundId: number } | null>(null)
+const session = ref<{ playerId: number; pin: string; roundId: number; name: string } | null>(null)
+
+onMounted(async () => {
+  const saved = localStorage.getItem(SESSION_KEY)
+  if (!saved) return
+  try {
+    const parsed = JSON.parse(saved)
+    if (parsed?.playerId && parsed?.pin) {
+      session.value = parsed
+      loggedIn.value = true
+      await refreshPortfolio()
+    }
+  } catch {
+    localStorage.removeItem(SESSION_KEY)
+  }
+})
+
+const route = useRoute()
 
 // Rounds for login dropdown
 const { data: roundsData } = await useFetch<any>('/api/game/rounds', { lazy: true })
@@ -354,6 +378,14 @@ const roundOptions = computed(() =>
     .filter((r: any) => r.status !== 'finished')
     .map((r: any) => ({ label: r.name, value: r.id }))
 )
+
+// Pre-select round from query param
+watch(roundOptions, (opts) => {
+  const roundParam = Number(route.query.round)
+  if (roundParam && opts.length && !loginForm.value.roundId) {
+    loginForm.value.roundId = opts.find((o: any) => o.value === roundParam) ?? null
+  }
+}, { immediate: true })
 
 const loginForm = ref({ roundId: null as any, name: '', pin: '' })
 const loginLoading = ref(false)
@@ -379,8 +411,10 @@ async function login() {
       session.value = {
         playerId: res.player.id,
         pin: loginForm.value.pin,
-        roundId: res.player.round_id
+        roundId: res.player.round_id,
+        name: loginForm.value.name
       }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session.value))
       loggedIn.value = true
       await refreshPortfolio()
     }
@@ -396,6 +430,8 @@ function logout() {
   session.value = null
   portfolio.value = null
   chartData.value = []
+  quotePrice.value = null
+  localStorage.removeItem(SESSION_KEY)
 }
 
 // Portfolio
@@ -417,6 +453,14 @@ async function refreshPortfolio() {
   try {
     const res = await $fetch<any>(`/api/game/player/${session.value.playerId}/portfolio?pin=${session.value.pin}`)
     if (res.success) portfolio.value = res.data
+    // Refresh quote for selected ticker
+    const symbol = tradeForm.value.ticker?.value ?? tradeForm.value.ticker
+    if (symbol) {
+      const q = await $fetch<any>(
+        `/api/game/player/${session.value.playerId}/quote?pin=${session.value.pin}&ticker=${symbol}`
+      ).catch(() => null)
+      if (q?.success) quotePrice.value = q.data.price
+    }
   } catch (e: any) {
     toast.add({ title: e.data?.statusMessage ?? 'Chyba načítání portfolia', color: 'error' })
   } finally {
@@ -474,16 +518,32 @@ const xFormatter = (index: number) => {
 // Trade
 const tradeForm = ref({ action: 'buy' as 'buy' | 'sell', ticker: null as any, shares: 1 })
 const trading = ref(false)
+const quotePrice = ref<number | null>(null)
+
+watch(() => tradeForm.value.ticker, async (ticker) => {
+  quotePrice.value = null
+  const symbol = ticker?.value ?? ticker
+  if (!symbol || !session.value) return
+  try {
+    const res = await $fetch<any>(
+      `/api/game/player/${session.value.playerId}/quote?pin=${session.value.pin}&ticker=${symbol}`
+    )
+    if (res.success) quotePrice.value = res.data.price
+  } catch {
+    quotePrice.value = null
+  }
+})
 
 const tradePreview = computed(() => {
   const ticker = tradeForm.value.ticker?.value ?? tradeForm.value.ticker
   if (!ticker || !tradeForm.value.shares) return null
   const holding = portfolio.value?.holdings?.find((h: any) => h.ticker === ticker)
-  const price = holding?.current_price ?? null
+  const price = quotePrice.value ?? holding?.current_price ?? null
   if (!price) return null
   const total = price * tradeForm.value.shares
   const remainingCash = (portfolio.value?.player?.cash ?? 0) - total
-  return { price, total, remainingCash }
+  const ownedShares = holding?.shares ?? 0
+  return { price, total, remainingCash, ownedShares }
 })
 
 async function executeTrade() {

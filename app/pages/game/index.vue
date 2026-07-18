@@ -118,7 +118,7 @@
                 <NuxtLink :to="`/game/leaderboard?round=${round.id}`">
                   <UButton size="xs" variant="ghost" color="neutral" icon="i-lucide-trophy" />
                 </NuxtLink>
-                <NuxtLink to="/game/play">
+                <NuxtLink :to="`/game/play?round=${round.id}`">
                   <UButton size="xs" variant="soft" color="primary" icon="i-lucide-log-in">
                     Vstoupit
                   </UButton>

@@ -25,3 +25,7 @@ logs
 
 datasets
 !datasets/akcie_hra_tickers_cz.csv
+
+# Game state database (runtime, separate from static stock_market.db)
+game.db
+game.db-*

@@ -1,6 +1,6 @@
-import { getGameDb } from '../../../../utils/gameDb'
-import { getDb } from '../../../../utils/db'
-import { getTurnDate, getClosePrice } from '../../../../utils/gameHelpers'
+import { getGameDb } from '../../../utils/gameDb'
+import { getDb } from '../../../utils/db'
+import { getTurnDate, getClosePrice } from '../../../utils/gameHelpers'
 
 export default defineEventHandler((event) => {
   const roundId = Number(getRouterParam(event, 'roundId'))
