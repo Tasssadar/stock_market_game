@@ -64,6 +64,19 @@ const positiveClosers = [
   'Otázka dne: hype, nebo nový normál?'
 ]
 
+const positiveIntros = [
+  '{ticker} dnes válcuje tabulky a chaty jedou na plný výkon',
+  '{ticker} dnes rozsvítil zelenou a burzovní chat hučí jak stadion',
+  '{ticker} šlape jako turbo a trh nestíhá doplňovat konfety',
+  '{ticker} dnes jede rally a skeptici jen tiše přepočítávají',
+  '{ticker} rozjel byčí párty a order book sotva dýchá',
+  '{ticker} dnes přebral mikrofon a diktuje tempo celé seanci',
+  '{ticker} vystřelil vzhůru a i opoždění naskakují do vlaku',
+  '{ticker} předvádí zelený sprint a komentátoři loví superlativy',
+  '{ticker} dneska pálí jak raketa a parket má euforii v očích',
+  '{ticker} rozdává body jak na školním turnaji a trh tleská'
+]
+
 const negativeReasons = [
   'unikla zpráva o odložení projektu a trh okamžitě přepnul do režimu panika.',
   'vlna výběru zisku sestřelila cenu dřív, než moderátor stihl dokončit větu.',
@@ -130,6 +143,23 @@ const negativeClosers = [
   'Starý slogan připomíná, že market goes up... eventually.'
 ]
 
+const negativeIntros = [
+  '{ticker} dostal smyk a parket na chvíli ztichl',
+  '{ticker} dnes chytil červenou vlnu a burza na moment zadržela dech',
+  '{ticker} uklouzl po grafu dolů a nálada na trhu ztěžkla',
+  '{ticker} šel do kolen a komentátoři hledají nouzové vysvětlení',
+  '{ticker} dnes narazil na medvědí zeď a objemy zčervenaly',
+  '{ticker} ztratil půdu pod nohama a parket přepnul do tichého režimu',
+  '{ticker} schytal studenou sprchu a byci rychle stáhli hlasitost',
+  '{ticker} dnes padá po schodech a trh počítá škody',
+  '{ticker} se propadl do červeného pásma a nervozita vystřelila',
+  '{ticker} dostal tvrdý reality check a tabule zrudla během minut'
+]
+
+function pickRandom(items: string[]): string {
+  return items[Math.floor(Math.random() * items.length)]!
+}
+
 function buildTemplate(
   intro: string,
   playerLine: string,
@@ -143,8 +173,8 @@ ${playerLine}
 
 export const positiveTemplates: string[] = positiveReasons.map((reason, index) =>
   buildTemplate(
-    `{ticker} dnes válcuje tabulky a chaty jedou na plný výkon`,
-    `<b>{playerNames}</b> na tom dneska získal <b {polarityTextStyle}>{amount} ({percent}) při {shares} ks</b>! Trh se tváří nebezpečně sebevědomě.`,
+    pickRandom(positiveIntros),
+    `<b>{playerNames}</b> na tom dneska získal <b {polarityTextStyle}>{amount} ({percent}) při {shares} ks</b>!`,
     reason,
     positiveClosers[index % positiveClosers.length]!
   )
@@ -152,7 +182,7 @@ export const positiveTemplates: string[] = positiveReasons.map((reason, index) =
 
 export const negativeTemplates: string[] = negativeReasons.map((reason, index) =>
   buildTemplate(
-    `{ticker} dostal smyk a parket na chvíli ztichl`,
+    pickRandom(negativeIntros),
     `Nejvíc to dnes zasáhlo <b>{playerNames}</b>, který se slzami v očích sledoval, jak mizí <b {polarityTextStyle}>{amount} ({percent}) při {shares} ks</b>.`,
     reason,
     negativeClosers[index % negativeClosers.length]!

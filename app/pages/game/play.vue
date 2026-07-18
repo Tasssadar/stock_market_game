@@ -359,10 +359,10 @@
           </div>
         </template>
 
-        <p class="text-sm font-semibold" :class="currentNews.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'">
+        <p class="text-2xl font-semibold" :class="currentNews.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'">
           {{ currentNews.headline }}
         </p>
-        <p class="text-sm text-slate-200 whitespace-pre-line leading-relaxed" v-html="currentNews.body"></p>
+        <p class="text-base text-slate-200 whitespace-pre-line leading-relaxed" v-html="currentNews.body"></p>
         <div class="text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
           <span>Společnost: <span class="text-slate-200">{{ currentNews.companyName }}</span></span>
           <span>Hráč(i): <span class="text-slate-200">{{ currentNews.playerNames }}</span></span>
@@ -734,11 +734,37 @@ function fillTemplate(template: string, values: Record<string, string>): string 
   return template.replace(/\{(\w+)\}/g, (_m, key: string) => values[key] ?? `{${key}}`)
 }
 
+const positiveHeadlineVariants = [
+  'býčí extáze na plný plyn',
+  'růstová jízda bez brzd',
+  'zelená raketa právě odstartovala',
+  'trh hlásí byčí turbo režim',
+  'optimismus převzal velení',
+  'parket jede na vlně euforie',
+  'býci diktují tempo celé seanci',
+  'graf připomíná výtah do nebe'
+]
+
+const negativeHeadlineVariants = [
+  'medvědí propad zapnul sirény',
+  'červená lavina smetla parket',
+  'trh přešel do režimu nouze',
+  'graf se utrhl směrem dolů',
+  'medvědi ovládli hlavní scénu',
+  'nálada padá rychleji než kurz',
+  'panika přebrala mikrofon',
+  'býci ustoupili a zůstalo ticho'
+]
+
+function pickRandom(items: string[]): string {
+  return items[Math.floor(Math.random() * items.length)] ?? ''
+}
+
 function buildNewsHeadline(event: NewsEvent): string {
   if (event.polarity === 'positive') {
-    return `${event.ticker}: býčí extáze na plný plyn`
+    return `${event.ticker}: ${pickRandom(positiveHeadlineVariants)}`
   }
-  return `${event.ticker}: medvědí propad zapnul sirény`
+  return `${event.ticker}: ${pickRandom(negativeHeadlineVariants)}`
 }
 
 async function refreshRoundNews(turn: number, options: { silent?: boolean } = {}) {
