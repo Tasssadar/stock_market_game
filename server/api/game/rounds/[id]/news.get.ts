@@ -48,14 +48,6 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 400, statusMessage: 'Parametr turn je mimo rozsah kola' })
   }
 
-  // Turn 1 has no previous turn to compare against, so no gain/loss story exists.
-  if (turn < 2) {
-    return {
-      success: true,
-      data: null
-    }
-  }
-
   const players = db.prepare(`
     SELECT id, name
     FROM players
@@ -106,6 +98,8 @@ export default defineEventHandler((event) => {
   }
 
   const turnDate = getTurnDate(round.start_date, round.turn_length_days, turn)
+  // For turn 1, compare to turn 0 date (one turn-length before start),
+  // then getClosePrice() resolves nearest available earlier market close.
   const previousTurnDate = getTurnDate(round.start_date, round.turn_length_days, turn - 1)
 
   const tickerPlaceholders = allTickers.map(() => '?').join(',')

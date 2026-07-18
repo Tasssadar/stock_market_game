@@ -686,12 +686,12 @@ async function refreshPortfolio(options: { silent?: boolean } = {}) {
         if (lastSeenTurn.value === null) {
           lastSeenTurn.value = newTurn
           const latestClosedTurn = newTurn - 1
-          if (latestClosedTurn >= 2 && latestClosedTurn !== lastShownNewsTurn.value) {
+          if (latestClosedTurn >= 1 && latestClosedTurn !== lastShownNewsTurn.value) {
             await refreshRoundNews(latestClosedTurn, { silent: true })
           }
         } else if (newTurn !== lastSeenTurn.value) {
           const justClosedTurn = newTurn - 1
-          if (justClosedTurn >= 2 && justClosedTurn !== lastShownNewsTurn.value) {
+          if (justClosedTurn >= 1 && justClosedTurn !== lastShownNewsTurn.value) {
             await refreshRoundNews(justClosedTurn, { silent: true })
           }
           lastSeenTurn.value = newTurn
@@ -768,7 +768,7 @@ function buildNewsHeadline(event: NewsEvent): string {
 }
 
 async function refreshRoundNews(turn: number, options: { silent?: boolean } = {}) {
-  if (!session.value || turn < 2) return
+  if (!session.value || turn < 1) return
   try {
     const res = await $fetch<{ success: boolean; data: RoundNewsPayload | null }>(
       `/api/game/rounds/${session.value.roundId}/news?turn=${turn}`

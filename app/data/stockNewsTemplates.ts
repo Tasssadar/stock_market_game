@@ -114,7 +114,7 @@ function buildTemplate(
 export const positiveTemplates: string[] = positiveReasons.map((reason, index) =>
   buildTemplate(
     pickRandom(positiveIntros),
-    `<b>{playerNames}</b> na tom dneska získal <b {polarityTextStyle}>{amount} ({percent}) při {shares} ks</b>!`,
+    `<b>{playerNames}</b> na tom dneska získal <b {polarityTextStyle}>{amount} ({percent})</b>!`,
     reason,
     positiveClosers[index % positiveClosers.length]!
   )
@@ -123,7 +123,7 @@ export const positiveTemplates: string[] = positiveReasons.map((reason, index) =
 export const negativeTemplates: string[] = negativeReasons.map((reason, index) =>
   buildTemplate(
     pickRandom(negativeIntros),
-    `Nejvíc to dnes zasáhlo <b>{playerNames}</b>, který se slzami v očích sledoval, jak mizí <b {polarityTextStyle}>{amount} ({percent}) při {shares} ks</b>.`,
+    `Nejvíc to dnes zasáhlo <b>{playerNames}</b>, který se slzami v očích sledoval, jak mizí <b {polarityTextStyle}>{amount} ({percent})</b>.`,
     reason,
     negativeClosers[index % negativeClosers.length]!
   )
