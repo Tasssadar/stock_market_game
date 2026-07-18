@@ -14,7 +14,7 @@
 
         <UCard class="border-slate-800 bg-slate-900/80 backdrop-blur-md" :ui="{ body: 'p-6 space-y-4' }">
           <UFormField label="Herní kolo" name="round">
-            <USelectMenu
+            <USelect
               v-model="joinForm.roundId"
               :items="roundOptions"
               placeholder="Vyberte kolo..."
@@ -23,7 +23,7 @@
           </UFormField>
 
           <UFormField label="Hráč" name="player">
-            <USelectMenu
+            <USelect
               v-model="joinForm.playerId"
               :items="playerOptions"
               :loading="playersLoading"
@@ -337,38 +337,7 @@
       </div>
 
       <!-- Stock News -->
-      <UCard v-if="currentNews" class="border-slate-800 bg-slate-900/60" :ui="{ body: 'p-4 space-y-3' }">
-        <template #header>
-          <div class="flex items-center justify-between gap-3 flex-wrap">
-            <h2 class="text-sm font-bold text-white flex items-center gap-2">
-              <UIcon
-                :name="currentNews.polarity === 'positive' ? 'i-lucide-newspaper' : 'i-lucide-siren'"
-                class="h-4 w-4"
-                :class="currentNews.polarity === 'positive' ? 'text-emerald-400' : 'text-rose-400'"
-              />
-              Tržní zprávy
-            </h2>
-            <span
-              class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset"
-              :class="currentNews.polarity === 'positive'
-                ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
-                : 'bg-rose-500/10 text-rose-300 ring-rose-500/20'"
-            >
-              Tah {{ currentNews.turn }}
-            </span>
-          </div>
-        </template>
-
-        <p class="text-2xl font-semibold" :class="currentNews.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'">
-          {{ currentNews.headline }}
-        </p>
-        <p class="text-base text-slate-200 whitespace-pre-line leading-relaxed" v-html="currentNews.body"></p>
-        <div class="text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
-          <span>Společnost: <span class="text-slate-200">{{ currentNews.companyName }}</span></span>
-          <span>Hráč(i): <span class="text-slate-200">{{ currentNews.playerNames }}</span></span>
-          <span>Změna: <span class="font-mono" :class="currentNews.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'">{{ currentNews.amount }}</span></span>
-        </div>
-      </UCard>
+      <StockNewsCard :news="currentNews" />
 
       <!-- Trade History -->
       <UCard class="border-slate-800 bg-slate-900/60" :ui="{ body: 'p-4' }">
@@ -416,7 +385,8 @@
 </template>
 
 <script setup lang="ts">
-import { negativeTemplates, positiveTemplates } from '~/data/stockNewsTemplates'
+import StockNewsCard from '~/components/game/StockNewsCard.vue'
+import { useRoundNews } from '~/composables/useRoundNews'
 
 useSeoMeta({
   title: 'Akciová Hra — Hrát',
@@ -428,37 +398,12 @@ const route = useRoute()
 
 type Session = { playerId: number; roundId: number; name: string }
 type TradeDraft = { action: 'buy' | 'sell'; shares: number }
-type NewsPolarity = 'positive' | 'negative'
-type NewsEvent = {
-  player_id: number
-  player_name: string
-  ticker: string
-  company_name: string
-  shares_at_turn: number
-  gain_amount: number
-  gain_percent: number
-  polarity: NewsPolarity
-}
-type RoundNewsPayload = {
-  selected: NewsEvent
-}
-type RenderedNews = {
-  turn: number
-  polarity: NewsPolarity
-  headline: string
-  body: string
-  ticker: string
-  companyName: string
-  playerNames: string
-  amount: string
-}
 
 const SESSION_KEY = 'stock_game_session'
 const loggedIn = ref(false)
 const session = ref<Session | null>(null)
-const currentNews = ref<RenderedNews | null>(null)
+const { currentNews, lastShownNewsTurn, clearNews, refreshRoundNews } = useRoundNews()
 const lastSeenTurn = ref<number | null>(null)
-const lastShownNewsTurn = ref<number | null>(null)
 
 const isMultiMode = computed(() => route.query.multi === '1')
 
@@ -562,9 +507,8 @@ function leaveGame() {
   quotePrice.value = null
   tradeDraftsByTicker.value = {}
   tradeForm.value = { action: 'buy', shares: 1 }
-  currentNews.value = null
+  clearNews()
   lastSeenTurn.value = null
-  lastShownNewsTurn.value = null
   localStorage.removeItem(SESSION_KEY)
 }
 
@@ -646,9 +590,8 @@ watch(multiPlayerSelection, async (player) => {
       quotePrice.value = null
       tradeDraftsByTicker.value = {}
       tradeForm.value = { action: 'buy', shares: 1 }
-      currentNews.value = null
+      clearNews()
       lastSeenTurn.value = null
-      lastShownNewsTurn.value = null
       await refreshPortfolio()
       await refreshTickers()
     }
@@ -687,12 +630,12 @@ async function refreshPortfolio(options: { silent?: boolean } = {}) {
           lastSeenTurn.value = newTurn
           const latestClosedTurn = newTurn - 1
           if (latestClosedTurn >= 1 && latestClosedTurn !== lastShownNewsTurn.value) {
-            await refreshRoundNews(latestClosedTurn, { silent: true })
+            await refreshRoundNews(session.value.roundId, latestClosedTurn, { silent: true })
           }
         } else if (newTurn !== lastSeenTurn.value) {
           const justClosedTurn = newTurn - 1
           if (justClosedTurn >= 1 && justClosedTurn !== lastShownNewsTurn.value) {
-            await refreshRoundNews(justClosedTurn, { silent: true })
+            await refreshRoundNews(session.value.roundId, justClosedTurn, { silent: true })
           }
           lastSeenTurn.value = newTurn
         }
@@ -717,101 +660,6 @@ async function refreshPortfolio(options: { silent?: boolean } = {}) {
     }
   } finally {
     portfolioLoading.value = false
-  }
-}
-
-function deterministicIndex(seed: string, length: number): number {
-  if (length <= 0) return 0
-  let hash = 2166136261
-  for (let i = 0; i < seed.length; i++) {
-    hash ^= seed.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  return (hash >>> 0) % length
-}
-
-function fillTemplate(template: string, values: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_m, key: string) => values[key] ?? `{${key}}`)
-}
-
-const positiveHeadlineVariants = [
-  'internet slaví nečekaný posun o úroveň výš',
-  'čísla vystřelila jak raketa na festivalu',
-  'dneska jede v turbo režimu bez přehřívání',
-  'vítězný soundtrack hraje na plné pecky',
-  'chat nestíhá chrlit oslavné gify',
-  'všichni hledají, kdo zapnul tajný kód',
-  'nálada je nahoře a konfety dochází',
-  'hlášeno: denní dávka radosti doručena'
-]
-
-const negativeHeadlineVariants = [
-  'režim den blbec byl právě aktivován',
-  'tabule hlásí kritický nedostatek radosti',
-  'dneska to sjelo dolů bez varování',
-  'chat píše jen "au" a posílá smutné smajlíky',
-  'nálada spadla a soundtrack ztichl',
-  'nečekaný pád přepsal plán dne',
-  'čísla zakopla a tvrdě přistála',
-  'dnes vítězí chaos a zvednuté obočí'
-]
-
-function pickRandom(items: string[]): string {
-  return items[Math.floor(Math.random() * items.length)] ?? ''
-}
-
-function buildNewsHeadline(event: NewsEvent): string {
-  if (event.polarity === 'positive') {
-    return `${event.ticker}: ${pickRandom(positiveHeadlineVariants)}`
-  }
-  return `${event.ticker}: ${pickRandom(negativeHeadlineVariants)}`
-}
-
-async function refreshRoundNews(turn: number, options: { silent?: boolean } = {}) {
-  if (!session.value || turn < 1) return
-  try {
-    const res = await $fetch<{ success: boolean; data: RoundNewsPayload | null }>(
-      `/api/game/rounds/${session.value.roundId}/news?turn=${turn}`
-    )
-
-    lastShownNewsTurn.value = turn
-    if (!res.success || !res.data?.selected) return
-
-    const selected = res.data.selected
-    const templates = selected.polarity === 'positive' ? positiveTemplates : negativeTemplates
-    if (!templates.length) return
-
-    const seed = `${session.value.roundId}|${turn}|${selected.ticker}|${selected.player_id}|${selected.polarity}`
-    const template = templates[deterministicIndex(seed, templates.length)]!
-    const playerNames = selected.player_name
-    const amount = fmtSigned(selected.gain_amount)
-
-    const body = fillTemplate(template, {
-      ticker: selected.ticker,
-      companyName: selected.company_name,
-      playerName: playerNames,
-      playerNames,
-      amount,
-      amountAbs: fmt(Math.abs(selected.gain_amount)),
-      percent: fmtSignedPercent(selected.gain_percent),
-      shares: fmtShares(selected.shares_at_turn),
-      polarityTextStyle: `class="${selected.polarity === 'positive' ? 'text-emerald-300' : 'text-rose-300'}"`
-    })
-
-    currentNews.value = {
-      turn,
-      polarity: selected.polarity,
-      headline: buildNewsHeadline(selected),
-      body,
-      ticker: selected.ticker,
-      companyName: selected.company_name,
-      playerNames,
-      amount
-    }
-  } catch (e: any) {
-    if (!options.silent) {
-      toast.add({ title: e.data?.statusMessage ?? 'Chyba načítání tržní zprávy', color: 'error' })
-    }
   }
 }
 

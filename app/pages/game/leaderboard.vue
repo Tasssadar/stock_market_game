@@ -26,11 +26,6 @@
         </div>
       </div>
 
-      <!-- Loading -->
-      <div v-if="pending" class="space-y-3">
-        <div v-for="i in 4" :key="i" class="h-20 rounded-xl bg-slate-900/60 animate-pulse border border-slate-800" />
-      </div>
-
       <!-- Status badge -->
       <div v-if="round" class="flex items-center justify-between">
         <span
@@ -52,6 +47,8 @@
           Obnovit
         </UButton>
       </div>
+
+      <StockNewsCard :news="currentNews" />
 
       <!-- Podium (top 3) -->
       <div v-if="rankings.length >= 3" class="grid grid-cols-3 gap-4 items-end">
@@ -162,6 +159,9 @@
 </template>
 
 <script setup lang="ts">
+import StockNewsCard from '~/components/game/StockNewsCard.vue'
+import { useRoundNews } from '~/composables/useRoundNews'
+
 useSeoMeta({
   title: 'Akciová Hra — Žebříček',
   description: 'Živé hodnocení hráčů podle hodnoty jejich portfólia'
@@ -200,6 +200,7 @@ const { data, pending, refresh } = await useFetch<any>(
 
 const round = computed(() => data.value?.data?.round ?? null)
 const rankings = computed<any[]>(() => data.value?.data?.rankings ?? [])
+const { currentNews, clearNews, refreshRoundNews } = useRoundNews()
 
 function changeRound(option: any) {
   router.replace({ query: { round: option?.value } })
@@ -213,20 +214,42 @@ function statusLabel(status: string) {
 }
 
 // Auto-refresh countdown for active rounds
-const countdown = ref(30)
+const AUTO_REFRESH_INTERVAL = 5
+const countdown = ref(AUTO_REFRESH_INTERVAL)
 let refreshInterval: ReturnType<typeof setInterval> | null = null
 let countdownInterval: ReturnType<typeof setInterval> | null = null
 
 async function doRefresh() {
   await refresh()
-  countdown.value = 30
+  countdown.value = AUTO_REFRESH_INTERVAL
 }
 
-watch(round, (r) => {
+async function loadLeaderboardNews(options: { silent?: boolean } = {}) {
+  const currentRound = round.value
+  if (!currentRound) {
+    clearNews()
+    return
+  }
+
+  const latestClosedTurn = Number(currentRound.current_turn ?? 0) - 1
+  if (!Number.isFinite(latestClosedTurn) || latestClosedTurn < 1) {
+    clearNews()
+    return
+  }
+
+  await refreshRoundNews(currentRound.id, latestClosedTurn, options)
+}
+
+watch(round, (r, oldr) => {
   if (refreshInterval) clearInterval(refreshInterval)
   if (countdownInterval) clearInterval(countdownInterval)
+  if (oldr?.current_turn !== r?.current_turn) {
+    void loadLeaderboardNews({ silent: true })
+  }
   if (r?.status === 'active') {
-    refreshInterval = setInterval(() => { refresh(); countdown.value = 30 }, 30000)
+    refreshInterval = setInterval(async () => {
+      await doRefresh()
+    }, AUTO_REFRESH_INTERVAL*1000)
     countdownInterval = setInterval(() => { countdown.value-- }, 1000)
   }
 }, { immediate: true })

@@ -29,3 +29,4 @@ datasets
 # Game state database (runtime, separate from static stock_market.db)
 game.db
 game.db-*
+.backup
