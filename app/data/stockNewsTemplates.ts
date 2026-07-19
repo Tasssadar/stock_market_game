@@ -35,15 +35,12 @@ const positiveClosers = [
 ]
 
 const positiveIntros = [
-  '{ticker} dneska jede tak dobře, že chat nestíhá psát vykřičníky',
   '{ticker} rozjel párty a čísla skáčou jak na trampolíně',
   '{ticker} dnes vystřelil nahoru a všichni hledají důvod v memech',
   '{ticker} je dnes hvězda dne a internet mu posílá srdíčka',
-  '{ticker} překvapil úplně všechny a tabulka se rozzářila',
+  '{ticker} překvapil úplně všechny',
   '{ticker} má dnes turbo den a fanoušci jedou vítězné kolečko',
   '{ticker} nabral rychlost jak koloběžka z prudkého kopce',
-  '{ticker} dneska sbírá body rychleji než tým ve školním kvízu',
-  '{ticker} jako by zapnul tajný kód a nálada vystřelila nahoru',
   '{ticker} dnes válí tak moc, že i kalkulačka se usmívá'
 ]
 
@@ -54,10 +51,9 @@ const negativeReasons = [
   'na poradu dorazil kouzelník, ale zmizela jen nálada a ne chyby.',
   'krize u kancelářského kávovaru dosáhla kritického bodu.',
   'meme oddělení vyhlásilo stávku, protože jim došly samolepky.',
-  'nová verze spustila režim "všechno je komiks", což nikdo nečekal.',
   'firemní papoušek naučený na hesla je vykřičel při streamu.',
-  'kurýr doručil důležité balíky omylem do zverimexu.',
-  'v serverovně někdo zapnul disco kouli a světla blikala víc než hlavní přehled.',
+  'kurýr doručil důležité balíky omylem do zverimexu místo do kanclu.',
+  'v serverovně někdo zapnul disco kouli a servery místo práce začaly trsat.',
   'v interní soutěži o nejlepší kostým vyhrál člověk převlečený za chybu 404.',
   'na recepci se ztratily klíče od zasedačky a plán dne šel stranou.',
   'firemní chatbot začal odpovídat jen citáty z fantasy filmů.',
@@ -67,7 +63,7 @@ const negativeReasons = [
   'do zasedačky vlétlo hejno balónků a meeting se změnil v honičku.',
   'firemní pes utekl s USB diskem a pronásledování trvalo dvě hodiny.',
   'streamer omylem přečetl název firmy obráceně a internet si z toho udělal vtip dne.',
-  'výprava za ztraceným kocourkem po budově skončila bez úspěchu i bez plánu B.'
+  'výprava za ztraceným kocourkem po budově skončila bez úspěchu, a zaměstnanci jsou v depresi.'
 ]
 
 const negativeClosers = [
@@ -86,14 +82,11 @@ const negativeClosers = [
 const negativeIntros = [
   '{ticker} dneska zakopl o vlastní tkaničku a čísla šla dolů',
   '{ticker} má dnes den blbec a internet jen nevěřícně mrká',
-  '{ticker} to dnes nevyšlo a tabulka je plná smutných čísel',
-  '{ticker} schytal nepříjemný pád a chat zaplavily zprávy typu "co se to děje?"',
   '{ticker} dnes narazil do zdi a nálada rychle ochladla',
   '{ticker} ztratil tempo a fanoušci napjatě obnovují stránku',
-  '{ticker} chytil červenou kartu a skóre se sesunulo',
+  '{ticker} chytil červenou kartu',
   '{ticker} spadl z vítězné vlny a přistál tvrdě na zemi',
-  '{ticker} dnes přepnul na těžký režim a body jen mizí',
-  '{ticker} dostal tvrdý zásek a tabule se zbarvila do červena'
+  '{ticker} dostal tvrdý zásek'
 ]
 
 function pickRandom(items: string[]): string {
