@@ -3,6 +3,6 @@ allowBuilds:
   '@tailwindcss/oxide': false
   better-sqlite3: true
   esbuild: false
-  maplibre-gl: set this to true or false
+  maplibre-gl: true
   unrs-resolver: false
   vue-demi: false

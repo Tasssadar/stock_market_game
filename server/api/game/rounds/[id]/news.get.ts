@@ -97,10 +97,10 @@ export default defineEventHandler((event) => {
     runningShares.set(key, Math.max(0, current + delta))
   }
 
-  const turnDate = getTurnDate(round.start_date, round.turn_length_days, turn)
+  const turnDate = getTurnDate(round.start_date, round.turn_length_days, turn+1)
   // For turn 1, compare to turn 0 date (one turn-length before start),
   // then getClosePrice() resolves nearest available earlier market close.
-  const previousTurnDate = getTurnDate(round.start_date, round.turn_length_days, turn - 1)
+  const previousTurnDate = getTurnDate(round.start_date, round.turn_length_days, turn )
 
   const tickerPlaceholders = allTickers.map(() => '?').join(',')
   const tickerRows = stockDb.prepare(`

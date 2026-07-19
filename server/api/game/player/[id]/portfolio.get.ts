@@ -77,6 +77,7 @@ export default defineEventHandler((event) => {
     for (let turn = 1; turn <= round.current_turn; turn++) {
       const turnDate = getTurnDate(round.start_date, round.turn_length_days, turn)
       const turnPrice = getClosePrice(stockDb, h.ticker, turnDate) ?? 0
+
       const sharesAtTurn = sharesByTurnByTicker.get(h.ticker)?.has(turn)
         ? sharesByTurnByTicker.get(h.ticker)!.get(turn)!
         : lastRecordedShares
